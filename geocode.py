@@ -16,7 +16,7 @@ app = typer.Typer()
 
 def _create_temp_sql(filepath):
     temp_dir = '.'
-    temp_db_path = os.path.join(temp_dir, 'open_data_philly_temp.db')
+    temp_db_path = os.path.join(temp_dir, 'temp.db')
     shutil.copy2(filepath, temp_db_path)
     return temp_db_path
 
@@ -97,13 +97,16 @@ def get_associated_parcels(
     
     
 @app.command()
-def generate_db_for_dashboard():
+def generate_db_for_dashboard(
+    parcels_filepath: str = typer.Option("data/all_parcels.csv", help="Input CSV file with parcel data"),
+    subsidies_filepath: str = typer.Option("data/All Subsidies.xlsx - Philly.csv", help="Input CSV file with subsidies data"),
+    lead_filepath: str = typer.Option("data/lhhp_lead_certifications.csv", help="Input CSV file with lead data"),
+    open_data_philly_filepath: str = typer.Option("data/open_data_philly.db", help="Input database file with open data philly data"),
+):
     """Generate database for dashboard with rental license information."""
-    parcels_filepath = 'data/all_parcels.csv'
-    subsidies_filepath = 'data/All Subsidies.xlsx - Philly.csv'
 
     typer.echo("Creating temporary database...")
-    temp_db_path = _create_temp_sql('data/open_data_philly.db')
+    temp_db_path = _create_temp_sql(open_data_philly_filepath)
     con = sqlite3.connect(temp_db_path)
 
     typer.echo(f"Loading parcel data")
@@ -113,7 +116,7 @@ def generate_db_for_dashboard():
     df_unique_parcels.to_sql('parcels', con, if_exists='replace', index=False)
 
     typer.echo("Processing lead data...")
-    df_lead = pd.read_csv('data/lhhp_lead_certifications.csv', dtype='str')
+    df_lead = pd.read_csv(lead_filepath, dtype='str')
     df_lead = df_lead.dropna(subset=['li_rl_license']).set_index('opa_account')[['lhhp_status_type','lhhp_certification_status','lhhp_cert_date','lhhp_cert_expiration_date']]
 
 
@@ -207,58 +210,6 @@ def generate_db_for_dashboard():
     con.close()
     os.remove(temp_db_path)
 
-
-
-@app.command()
-def geocode(
-    nhpd_file: str = typer.Option("data/All Properties (Philly) - All Properties (Philly).csv", help="NHPD properties file"),
-    subsidies_file: str = typer.Option("data/All Subsidies.xlsx - Philly.csv", help="Subsidies file"),
-    hud_file: str = typer.Option("data/lihtc_opd.csv", help="HUD OPD file"),
-    huduser_file: str = typer.Option("data/lihtc_huduser_philadelphia.csv", help="HUD User file"),
-    geocoded_file: str = typer.Option("data/geocoded_results.csv", help="Geocoded results file"),
-    output_file: str = typer.Option("data/geocoded_analysis.csv", help="Output file for analysis")
-):
-    """Perform geocoding analysis and data joining."""
-    typer.echo("Loading data files...")
-    df_nhpd = pd.read_csv(nhpd_file, dtype=str)
-    df_nhpd_subsidies = pd.read_csv(subsidies_file, dtype=str)
-    df_hud = pd.read_csv(hud_file, dtype=str)
-    df_huduser_gov = pd.read_csv(huduser_file, dtype='str')
-    df_geocoded = pd.read_csv(geocoded_file, dtype='str')
-
-    typer.echo("Joining data...")
-    # First try to bridge on address
-    df_nhpd['join_method'] = None
-    df_nhpd['PropertyAddress'] = df_nhpd['PropertyAddress'].str.upper()
-    df_nhpd['PropertyName'] = df_nhpd['PropertyName'].str.upper()
-    df_joined = pd.merge(
-        df_nhpd,
-        df_hud,
-        left_on=["PropertyName","PropertyAddress"],
-        right_on=["PROJECT","PROJ_ADD"],
-        how="left"
-    )
-    df_joined.loc[df_joined['HUD_ID'].notna(), 'join_method'] = 'address_name'
-
-    df_joined = pd.merge(
-        df_joined,
-        df_huduser_gov,
-        left_on=["HUD_ID"],
-        right_on=["hud_id"],
-        how="left"
-    )
-
-    # Try to join to our geocode
-    df_joined = pd.merge(
-        df_joined,
-        df_geocoded[['NHPD Property ID','results','lat','lng','parcel_number','match_method','success']],
-        left_on=['NHPDPropertyID'],
-        right_on=['NHPD Property ID']
-    )
-
-    typer.echo(f"Saving results to {output_file}")
-    df_joined.to_csv(output_file, index=False)
-    typer.echo(f"✅ Successfully processed {len(df_joined)} properties")
 
 if __name__ == '__main__':
     app()
