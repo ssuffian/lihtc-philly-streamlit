@@ -17,8 +17,11 @@
 ### Regular updates required
 - streamlit_app.py has a hardcoded dictionary of state senate and council districts to the names of the people holding those positions.
 
-### Running
+### Updating the data for the dashboard
 ```
+# install geospatial which is needed for these scripts
+uv sync --extra dev
+
 # This takes each HUD property and gets every parcel number associated with it
 python get-associated-parcels
 
