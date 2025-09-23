@@ -4,9 +4,8 @@
 1. Download the LIHTC file from [here](https://nhpd.preservationdatabase.org/Data). Download the complete list of All Properties, as well as All Subsidies.
 2. For processing purposes, filter this file to only include those where city='Philadelphia' and state='PA'. Name this file `lihtc_properties_philadelphia.csv`.
 3. Ensure your LIHTC CSV file (`lihtc_properties_philadelphia.csv`) is in the same directory as the script.
-4. Attempt to geocode this file based on `where-is-philly`. Share the output in a google-doc so the OPA account number mappings can be crowd-source confirmed.
+4. Attempt to geocode this file based on [where-is-philly](https://github.com/ssuffian/who-is-where-philly). Share the output in a google-doc so the OPA account number mappings can be crowd-source confirmed.
 5. Download the hand-geocoded file and put it in `data`. By default it looks for a file named 'All Properties (Philly, Geocode Attempt) - geocoded_results.csv'
-```
 
 ### Getting Other Data (put in the `data/` folder):
 
