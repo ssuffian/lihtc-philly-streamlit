@@ -115,12 +115,8 @@ st.subheader("📊 Data Filters")
 col_data1, col_data2, col_data3 = st.columns(3)
 
 with col_data1:
-    # Expires before filter
-    expires_before = st.date_input(
-        "Subsidy Expires Before:",
-        value=None,
-        help="Show properties that expire before this date"
-    )
+    # Placeholder for future data filters
+    pass
 
 with col_data2:
     # Certification status filter (multiselect)
@@ -167,7 +163,7 @@ with col_data4:
 
 with col_data5:
     # LIHTC Max End Date year range filter
-    st.write("**LIHTC End Date Year Range:**")
+    st.write("**LIHTC Latest End Date Year Range:**")
     
     # Get available years from the data
     lihtc_df['Max End Date'] = pd.to_datetime(lihtc_df['Max End Date'], errors='coerce')
@@ -205,14 +201,6 @@ if selected_senate != 'All':
 else:
     senate_title = ""
 
-# Filter by expiration date
-if expires_before is not None:
-    # Convert Max End Date to datetime for comparison
-    filtered_df['Max End Date'] = pd.to_datetime(filtered_df['Max End Date'], errors='coerce')
-    filtered_df = filtered_df[filtered_df['Max End Date'] < pd.Timestamp(expires_before)].copy()
-    expires_title = f" expiring before {expires_before.strftime('%Y-%m-%d')}"
-else:
-    expires_title = ""
 
 # Filter by certification status
 if len(selected_cert_statuses) == 0:
@@ -262,12 +250,12 @@ if year_range is not None:
         (filtered_df['Max End Date'].dt.year >= start_year) & 
         (filtered_df['Max End Date'].dt.year <= end_year)
     ].copy()
-    year_title = f" with LIHTC End Date {start_year}-{end_year}"
+    year_title = f" with LIHTC Latest End Date {start_year}-{end_year}"
 else:
     year_title = ""
 
 # Create display title
-display_title = district_title + senate_title + expires_title + status_title + rental_title + units_title + year_title
+display_title = district_title + senate_title + status_title + rental_title + units_title + year_title
 
 # Display filtered counts
 st.subheader("📈 Filtered Results")
