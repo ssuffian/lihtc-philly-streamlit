@@ -139,21 +139,24 @@ def generate_db_for_dashboard(
     df_subsidies = pd.read_csv(subsidies_filepath, dtype='str')
     df_subsidies['End Date'] = pd.to_datetime(df_subsidies['End Date'])
     df_lihtc_subsidies = df_subsidies[df_subsidies['Subsidy Name']=='LIHTC']
-    df_min_dates = df_lihtc_subsidies.groupby('NHPD Property ID')['End Date'].min()
-    df_min_dates.name = 'Min End Date'
+    df_max_dates_idx = df_lihtc_subsidies.groupby('NHPD Property ID')['End Date'].idxmax()
+    # There are some inactive subsidies that have no dates associated with them (like 1181164)
+    df_max_dates_idx = df_max_dates_idx.dropna()
+    df_max_dates = df_lihtc_subsidies.loc[df_max_dates_idx, ['NHPD Property ID','End Date','Subsidy Status']].rename(columns={'End Date':'Max End Date'}).reset_index()
     
     # End Date subsidy
     df = pd.merge(
         df_nhpd_to_parcel_mapping,
-        df_min_dates,
+        df_max_dates,
         left_on=['nhpd_property_id'],
         right_on=['NHPD Property ID'],
         how='left'
     )
     # Get ones with no_lihtc
-    # df_parcels[df_parcels.nhpd_property_id.isin(df[df['Min End Date'].isna()].nhpd_property_id.drop_duplicates())][['nhpd_property_id','lihtc_property_name','lihtc_property_address']].drop_duplicates().to_csv('no_lihtc.csv')
-    df = df.dropna(subset=['Min End Date'])
-    df = df.groupby('parcel_number')[['Min End Date']].min()
+    # df_parcels[df_parcels.nhpd_property_id.isin(df[df['Max End Date'].isna()].nhpd_property_id.drop_duplicates())][['nhpd_property_id','lihtc_property_name','lihtc_property_address']].drop_duplicates().to_csv('no_lihtc.csv')
+    df = df.dropna(subset=['Max End Date'])
+    df_idx = df.groupby('parcel_number')['Max End Date'].idxmax()
+    df = df.loc[df_idx, ['parcel_number','Max End Date', 'Subsidy Status']].set_index('parcel_number')
 
     df_w_rental = df.join(df_rental_license.set_index('parcel_number'))
     df_w_rental = df_w_rental.join(df_lead)

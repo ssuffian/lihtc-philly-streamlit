@@ -65,7 +65,7 @@ with col1:
 
 with col2:
     total_units = lihtc_df['numberofunits'].sum()
-    st.metric("Total Units", f"{total_units:,.0f}")
+    st.metric("Total Units", f"{total_units:,.0f}", help="Total number of housing units (based on rental license data) across all LIHTC properties in Philadelphia")
 
 with col3:
     certified_properties = len(lihtc_df[lihtc_df['lhhp_certification_status'] == 'Certified'])
@@ -73,7 +73,7 @@ with col3:
 
 with col4:
     avg_units = lihtc_df['numberofunits'].mean() if len(lihtc_df) > 0 else 0
-    st.metric("Avg Units per Property", f"{avg_units:.1f}")
+    st.metric("Avg Units per Property", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per LIHTC property in Philadelphia")
 
 st.divider()
 
@@ -132,11 +132,13 @@ with col_data2:
     )
 
 with col_data3:
-    # Active rental license filter
-    has_rental_license = st.checkbox(
-        "Has Active Rental License Only",
-        value=False,
-        help="Show only properties with active rental licenses"
+    # Rental license filter
+    rental_license_options = ['All', 'Active', 'Inactive']
+    selected_rental_license = st.selectbox(
+        "Rental License Status:",
+        options=rental_license_options,
+        index=0,  # Default to "All"
+        help="Filter by rental license status"
     )
 
 # Additional data filter row
@@ -164,8 +166,27 @@ with col_data4:
         min_units = None
 
 with col_data5:
-    # Placeholder for future data filters
-    pass
+    # LIHTC Max End Date year range filter
+    st.write("**LIHTC End Date Year Range:**")
+    
+    # Get available years from the data
+    lihtc_df['Max End Date'] = pd.to_datetime(lihtc_df['Max End Date'], errors='coerce')
+    available_years = sorted(lihtc_df['Max End Date'].dt.year.dropna().unique())
+    
+    if len(available_years) > 0:
+        min_year = int(available_years[0])
+        max_year = int(available_years[-1])
+        
+        year_range = st.slider(
+            "Select Year Range:",
+            min_value=min_year,
+            max_value=max_year,
+            value=(2025, 2035),
+            step=1,
+            help="Filter properties by LIHTC Max End Date year range"
+        )
+    else:
+        year_range = None
 
 # Apply filters
 filtered_df = lihtc_df.copy()
@@ -186,9 +207,9 @@ else:
 
 # Filter by expiration date
 if expires_before is not None:
-    # Convert Min End Date to datetime for comparison
-    filtered_df['Min End Date'] = pd.to_datetime(filtered_df['Min End Date'], errors='coerce')
-    filtered_df = filtered_df[filtered_df['Min End Date'] < pd.Timestamp(expires_before)].copy()
+    # Convert Max End Date to datetime for comparison
+    filtered_df['Max End Date'] = pd.to_datetime(filtered_df['Max End Date'], errors='coerce')
+    filtered_df = filtered_df[filtered_df['Max End Date'] < pd.Timestamp(expires_before)].copy()
     expires_title = f" expiring before {expires_before.strftime('%Y-%m-%d')}"
 else:
     expires_title = ""
@@ -210,11 +231,16 @@ else:
         status_title = f" with {', '.join(selected_cert_statuses)} Status"
 
 # Filter by rental license status
-if has_rental_license:
+if selected_rental_license == 'Active':
     # Filter for properties that have an active rental license
     filtered_df = filtered_df[filtered_df['has_active_rental_license'] == True].copy()
     rental_title = " with Active Rental License"
+elif selected_rental_license == 'Inactive':
+    # Filter for properties that do not have an active rental license
+    filtered_df = filtered_df[filtered_df['has_active_rental_license'] == False].copy()
+    rental_title = " with Inactive Rental License"
 else:
+    # Include all properties regardless of rental license status
     rental_title = ""
 
 # Filter by number of units
@@ -226,8 +252,22 @@ else:
     # Include all properties regardless of unit count
     units_title = ""
 
+# Filter by LIHTC Max End Date year range
+if year_range is not None:
+    start_year, end_year = year_range
+    # Convert Max End Date to datetime if not already done
+    filtered_df['Max End Date'] = pd.to_datetime(filtered_df['Max End Date'], errors='coerce')
+    # Filter by year range
+    filtered_df = filtered_df[
+        (filtered_df['Max End Date'].dt.year >= start_year) & 
+        (filtered_df['Max End Date'].dt.year <= end_year)
+    ].copy()
+    year_title = f" with LIHTC End Date {start_year}-{end_year}"
+else:
+    year_title = ""
+
 # Create display title
-display_title = district_title + senate_title + expires_title + status_title + rental_title + units_title
+display_title = district_title + senate_title + expires_title + status_title + rental_title + units_title + year_title
 
 # Display filtered counts
 st.subheader("📈 Filtered Results")
@@ -238,7 +278,7 @@ with col1:
 
 with col2:
     numberofunits = filtered_df['numberofunits'].sum()
-    st.metric("Total Units", f"{numberofunits:,.0f}")
+    st.metric("Total Units", f"{numberofunits:,.0f}", help="Total number of housing units (based on rental license data) across all LIHTC properties in Philadelphia")
 
 with col3:
     certified_properties = len(filtered_df[filtered_df['lhhp_certification_status'] == 'Certified'])
@@ -246,7 +286,7 @@ with col3:
 
 with col4:
     avg_units = filtered_df['numberofunits'].mean() if len(filtered_df) > 0 else 0
-    st.metric("Avg Units per Property", f"{avg_units:.1f}")
+    st.metric("Avg Units per Property", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per LIHTC property in Philadelphia")
 
 st.divider()
 
@@ -292,13 +332,15 @@ if show_senate_districts:
 
 # Add individual property points to the map
 def get_marker_color(row):
-    """Get marker color based on certification status"""
-    if row['lhhp_certification_status'] == 'Certified':
+    """Get marker color based on subsidy status"""
+    if row['Subsidy Status'] == 'Active':
         return 'green'
-    elif row['lhhp_certification_status'] == 'Expired':
+    elif row['Subsidy Status'] == 'Inactive':
         return 'red'
+    elif row['Subsidy Status'] == 'Inconclusive':
+        return 'orange'
     else:
-        return 'blue'
+        return 'gray'
 
 # Add markers for each filtered property
 for idx, row in filtered_df.iterrows():
@@ -311,9 +353,9 @@ for idx, row in filtered_df.iterrows():
                 <b>Address:</b> {row['parcel_address']}<br/>
                 <b>Council District:</b> {row['council_district']}<br/>
                 <b>Senate District:</b> {row['senate_district']}<br/>
-                <b>Units:</b> {row['numberofunits']}<br/>
-                <b>Certification Status:</b> {row['lhhp_certification_status']}<br/>
-                <b>Min End Date:</b> {row['Min End Date']}
+                <b>Units (From Rental License):</b> {row['numberofunits']}<br/>
+                <b>Subsidy Status:</b> {row['Subsidy Status']}<br/>
+                <b>LIHTC Latest End Date:</b> {row['Max End Date']}
                 """,
                 max_width=300
             ),
@@ -338,6 +380,20 @@ def find_nearest_property(lat, lng, df):
 
 # Map section
 st.subheader("🗺️ Property Map")
+
+# Add legend
+st.markdown("**Map Legend:**")
+legend_col1, legend_col2, legend_col3, legend_col4 = st.columns(4)
+
+with legend_col1:
+    st.markdown("🟢 **Active** - Subsidy is currently active")
+with legend_col2:
+    st.markdown("🔴 **Inactive** - Subsidy has expired or ended")
+with legend_col3:
+    st.markdown("🟠 **Inconclusive** - Subsidy status unclear")
+with legend_col4:
+    st.markdown("⚫ **Other** - Unknown or missing status")
+
 map_data = st_folium(m, width=1200, height=600, returned_objects=["last_object_clicked"])
 
 # Initialize session state for selected property
@@ -369,11 +425,11 @@ display_columns = {
     'parcel_address': 'Address',
     'council_district': 'Council District',
     'senate_district': 'Senate District',
-    'numberofunits': 'Units',
-    'lhhp_certification_status': 'Certification Status',
-    'lhhp_cert_date': 'Certification Date',
-    'lhhp_cert_expiration_date': 'Expiration Date',
-    'Min End Date': 'Min End Date',
+    'numberofunits': 'Units (From RL)',
+    'lhhp_certification_status': 'Lead Certification Status',
+    'lhhp_cert_expiration_date': 'Lead Expiration Date',
+    'Subsidy Status': 'LIHTC Status',
+    'Max End Date': 'LIHTC Latest End Date',
     'num_associated_hud_properties': 'Associated HUD Properties'
 }
 
@@ -543,7 +599,7 @@ if len(display_df) > 0:
         # Additional details in full width
         st.write("**Additional Details**")
         additional_info = {
-            'Min End Date': selected_property['Min End Date'],
+            'Max End Date': selected_property['Max End Date'],
             'Associated HUD Properties': selected_property['num_associated_hud_properties'],
             'Property Type': selected_property.get('property_type', 'N/A'),
             'Owner Name': selected_property.get('owner_name', 'N/A'),
