@@ -69,7 +69,7 @@ with col2:
 
 with col3:
     certified_properties = len(lihtc_df[lihtc_df['lhhp_certification_status'] == 'Certified'])
-    st.metric("Certified Properties", f"{certified_properties:,}")
+    st.metric("Lead Certified Properties", f"{certified_properties:,}")
 
 with col4:
     avg_units = lihtc_df['numberofunits'].mean() if len(lihtc_df) > 0 else 0
@@ -270,7 +270,7 @@ with col2:
 
 with col3:
     certified_properties = len(filtered_df[filtered_df['lhhp_certification_status'] == 'Certified'])
-    st.metric("Certified Properties", f"{certified_properties:,}")
+    st.metric("Lead Certified Properties", f"{certified_properties:,}")
 
 with col4:
     avg_units = filtered_df['numberofunits'].mean() if len(filtered_df) > 0 else 0
