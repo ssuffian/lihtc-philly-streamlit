@@ -123,7 +123,7 @@ def generate_db_for_dashboard(
 
     typer.echo("Processing rental licenses...")
     df_rental_license = pd.read_sql("""
-        SELECT parcel_number, parcel_address, max(numberofunits) as numberofunits, max(num_associated_hud_properties) as num_associated_hud_properties, licensestatus = 'Active' as has_active_rental_license, case when licensestatus is null then null else 'units_from_rl' end as units_source
+        SELECT parcel_number, parcel_address, max(numberofunits) as numberofunits, max(num_associated_hud_properties) as num_associated_hud_properties, licensestatus = 'Active' as has_active_rental_license, licensestatus as rental_license_status, case when licensestatus is null then null else 'units_from_rl' end as units_source
         from parcels 
         LEFT JOIN business_licenses
         ON business_licenses.opa_account_num = parcels.parcel_number

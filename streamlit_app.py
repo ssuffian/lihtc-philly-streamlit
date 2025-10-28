@@ -342,6 +342,7 @@ for idx, row in filtered_df.iterrows():
                 <b>Council District:</b> {row['council_district']}<br/>
                 <b>Senate District:</b> {row['senate_district']}<br/>
                 <b>Units (From Rental License):</b> {row['numberofunits']}<br/>
+                <b>Rental License Status:</b> {row['rental_license_status']}<br/>
                 <b>Subsidy Status:</b> {row['Subsidy Status']}<br/>
                 <b>LIHTC Latest End Date:</b> {row['Max End Date']}
                 """,
@@ -414,6 +415,7 @@ display_columns = {
     'council_district': 'Council District',
     'senate_district': 'Senate District',
     'numberofunits': 'Units (From RL)',
+    "rental_license_status": "Rental License Status",
     'lhhp_certification_status': 'Lead Certification Status',
     'lhhp_cert_expiration_date': 'Lead Expiration Date',
     'Subsidy Status': 'LIHTC Status',
