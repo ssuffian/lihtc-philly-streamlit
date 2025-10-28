@@ -123,14 +123,14 @@ def generate_db_for_dashboard(
 
     typer.echo("Processing rental licenses...")
     df_rental_license = pd.read_sql("""
-        SELECT parcel_number, parcel_address, max(numberofunits) as numberofunits, max(num_associated_hud_properties) as num_associated_hud_properties, licensestatus is not null as has_active_rental_license
+        SELECT parcel_number, parcel_address, max(numberofunits) as numberofunits, max(num_associated_hud_properties) as num_associated_hud_properties, licensestatus = 'Active' as has_active_rental_license, case when licensestatus is null then null else 'units_from_rl' end as units_source
         from parcels 
         LEFT JOIN business_licenses
         ON business_licenses.opa_account_num = parcels.parcel_number
-        AND licensestatus='Active'
         GROUP BY parcel_number, parcel_address
     """, con=con)
     df_rental_license = df_rental_license.drop_duplicates()
+    df_rental_license['has_active_rental_license'] = df_rental_license['has_active_rental_license'].fillna(0).astype(int) # False is 0, True is 1
 
     df_nhpd_to_parcel_mapping = df_parcels[['nhpd_property_id', 'parcel_number']].dropna()
 
