@@ -78,6 +78,18 @@ with col4:
 
 st.divider()
 
+# Address Search section
+st.subheader("🔍 Search Address")
+address_options = ['All Addresses'] + sorted(lihtc_df['parcel_address'].dropna().unique().tolist())
+selected_address = st.selectbox(
+    "Search by Address:",
+    options=address_options,
+    index=0,  # Default to "All Addresses"
+    help="Search and filter by specific address. Start typing to see matching addresses."
+)
+
+st.divider()
+
 # Geographical Filters section
 st.subheader("🌍 Geographical Filters")
 col_geo1, col_geo2, col_geo3 = st.columns(3)
@@ -188,6 +200,13 @@ with col_data5:
 # Apply filters
 filtered_df = lihtc_df.copy()
 
+# Filter by address search
+if selected_address != 'All Addresses':
+    filtered_df = filtered_df[filtered_df['parcel_address'] == selected_address].copy()
+    address_title = f" for {selected_address}"
+else:
+    address_title = ""
+
 # Filter by council district
 if selected_district == 'All':
     district_title = "All Addresses Connected to LIHTC Subsidies in Philadelphia"
@@ -256,7 +275,7 @@ else:
     year_title = ""
 
 # Create display title
-display_title = district_title + senate_title + status_title + rental_title + units_title + year_title
+display_title = address_title + district_title + senate_title + status_title + rental_title + units_title + year_title
 
 # Display filtered counts
 st.subheader("📈 Filtered Results")
