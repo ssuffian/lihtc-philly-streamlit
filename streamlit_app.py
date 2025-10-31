@@ -44,6 +44,9 @@ def load_subsidies_data():
 lihtc_df = load_lihtc_data()
 df_all_subsidies = load_subsidies_data()
 
+# Read query parameters from URL
+query_params = st.query_params
+
 council_mapping = {
     '1': 'Mark Squilla',
     '2': 'Kenyatta Johnson',
@@ -78,18 +81,6 @@ with col4:
 
 st.divider()
 
-# Address Search section
-st.subheader("🔍 Search Address")
-address_options = ['All Addresses'] + sorted(lihtc_df['parcel_address'].dropna().unique().tolist())
-selected_address = st.selectbox(
-    "Search by Address:",
-    options=address_options,
-    index=0,  # Default to "All Addresses"
-    help="Search and filter by specific address. Start typing to see matching addresses."
-)
-
-st.divider()
-
 # Geographical Filters section
 st.subheader("🌍 Geographical Filters")
 col_geo1, col_geo2, col_geo3 = st.columns(3)
@@ -97,22 +88,26 @@ col_geo1, col_geo2, col_geo3 = st.columns(3)
 with col_geo1:
     # Council district filter with names
     council_options = ['All'] + sorted(lihtc_df['council_district'].dropna().unique().tolist())
+    default_council = query_params.get('council_district', ['All'])[0]
+    council_index = council_options.index(default_council) if default_council in council_options else 0
     selected_district = st.selectbox(
         "Select a Council District:",
         options=council_options,
         format_func=lambda x: f'{x} - {council_mapping[x]}' if x!='All' else x,
-        index=0
+        index=council_index
     )
 
 with col_geo2:
     # Senate district filter
     senate_mapping = {'1': 'Saval, Nikil', '8': 'Williams, Anthony H.', '7': 'Hughes, Vincent J.', '2': 'Tartaglione, Christine M.', '4': 'Haywood, Arthur L., lll', '3': 'Street, Sharif T.', '5': 'Dillon, Jimmy'}
     senate_options = ['All'] + sorted(lihtc_df['senate_district'].dropna().unique().tolist())
+    default_senate = query_params.get('senate_district', ['All'])[0]
+    senate_index = senate_options.index(default_senate) if default_senate in senate_options else 0
     selected_senate = st.selectbox(
         "Select a Senate District:",
         format_func=lambda x: f'{x} - {senate_mapping[x]}' if x!='All' else x,
         options=senate_options,
-        index=0
+        index=senate_index
     )
 
 with col_geo3:
@@ -125,28 +120,26 @@ st.divider()
 
 # Data Filters section
 st.subheader("📊 Data Filters")
-col_data1, col_data2, col_data3 = st.columns(3)
+col_data1, col_data2 = st.columns(2)
 
 with col_data1:
     # Placeholder for future data filters
     pass
 
 with col_data2:
-    # Certification status filter (multiselect)
-    cert_statuses = sorted(lihtc_df['lhhp_certification_status'].unique().tolist())
-    selected_cert_statuses = st.multiselect(
-        "Lead Certification Status:",
-        options=cert_statuses,
-        default=cert_statuses  # Show all by default
-    )
-
-with col_data3:
     # Rental license filter
     rental_license_options = ['All', 'Active', 'Inactive']
+    rental_license_param = query_params.get('rental_license')
+    if rental_license_param:
+        # Extract value if it's a list (shouldn't happen, but handle it)
+        default_rental = rental_license_param[0] if isinstance(rental_license_param, list) else rental_license_param
+        rental_index = rental_license_options.index(default_rental) if default_rental in rental_license_options else 0
+    else:
+        rental_index = 0
     selected_rental_license = st.selectbox(
         "Rental License Status:",
         options=rental_license_options,
-        index=0,  # Default to "All"
+        index=rental_index,
         help="Filter by rental license status"
     )
 
@@ -156,18 +149,35 @@ col_data4, col_data5 = st.columns(2)
 with col_data4:
     # Number of units filter
     st.write("**Units Filter:**")
+    units_mode_options = ["Include All", "Filter with Minimum"]
+    
+    # Get units_mode from URL params
+    units_mode_param = query_params.get('units_mode')
+    if units_mode_param:
+        default_units_mode = units_mode_param[0] if isinstance(units_mode_param, list) else units_mode_param
+    else:
+        default_units_mode = "Filter with Minimum"  # Default to "Filter with Minimum"
+    
+    units_mode_index = units_mode_options.index(default_units_mode) if default_units_mode in units_mode_options else 1
     units_filter_mode = st.radio(
         "Filter by Units:",
-        options=["Include All", "Filter with Minimum"],
-        index=1,  # Default to "Filter with Minimum"
+        options=units_mode_options,
+        index=units_mode_index,
         horizontal=True
     )
     
     if units_filter_mode == "Filter with Minimum":
+        min_units_param = query_params.get('min_units')
+        if min_units_param:
+            # Extract value if it's a list (shouldn't happen, but handle it)
+            value = min_units_param[0] if isinstance(min_units_param, list) else min_units_param
+            default_min_units = int(value)
+        else:
+            default_min_units = 20
         min_units = st.number_input(
             "Minimum Units:",
             min_value=0,
-            value=20,
+            value=default_min_units,
             step=1,
             help="Show only properties with at least this many units"
         )
@@ -186,11 +196,29 @@ with col_data5:
         min_year = int(available_years[0])
         max_year = int(available_years[-1])
         
+        # Get year range from query params or default to (2025, 2035)
+        year_start_param = query_params.get('year_start')
+        year_end_param = query_params.get('year_end')
+        
+        if year_start_param and year_end_param:
+            try:
+                # Extract value if it's a list (shouldn't happen, but handle it)
+                start_val = year_start_param[0] if isinstance(year_start_param, list) else year_start_param
+                end_val = year_end_param[0] if isinstance(year_end_param, list) else year_end_param
+                default_year_range = (int(start_val), int(end_val))
+                # Validate range
+                if default_year_range[0] < min_year or default_year_range[1] > max_year:
+                    default_year_range = (2025, 2035)
+            except (ValueError, TypeError):
+                default_year_range = (2025, 2035)
+        else:
+            default_year_range = (2025, 2035)
+        
         year_range = st.slider(
             "Select Year Range:",
             min_value=min_year,
             max_value=max_year,
-            value=(2025, 2035),
+            value=default_year_range,
             step=1,
             help="Filter properties by LIHTC Max End Date year range"
         )
@@ -200,12 +228,12 @@ with col_data5:
 # Apply filters
 filtered_df = lihtc_df.copy()
 
-# Filter by address search
-if selected_address != 'All Addresses':
-    filtered_df = filtered_df[filtered_df['parcel_address'] == selected_address].copy()
-    address_title = f" for {selected_address}"
+# Initialize address search from query params (will be applied after other filters)
+address_param = query_params.get('address')
+if address_param:
+    selected_address = address_param[0] if isinstance(address_param, list) else address_param
 else:
-    address_title = ""
+    selected_address = 'All Addresses'
 
 # Filter by council district
 if selected_district == 'All':
@@ -221,22 +249,6 @@ if selected_senate != 'All':
 else:
     senate_title = ""
 
-
-# Filter by certification status
-if len(selected_cert_statuses) == 0:
-    # If no statuses selected, show no results
-    filtered_df = filtered_df.iloc[0:0].copy()  # Empty dataframe with same structure
-    status_title = " (No Status Selected)"
-elif len(selected_cert_statuses) == len(cert_statuses):
-    # If all statuses selected, don't filter
-    status_title = ""
-else:
-    # Filter by selected statuses
-    filtered_df = filtered_df[filtered_df['lhhp_certification_status'].isin(selected_cert_statuses)].copy()
-    if len(selected_cert_statuses) == 1:
-        status_title = f" with {selected_cert_statuses[0]} Status"
-    else:
-        status_title = f" with {', '.join(selected_cert_statuses)} Status"
 
 # Filter by rental license status
 if selected_rental_license == 'Active':
@@ -274,27 +286,33 @@ if year_range is not None:
 else:
     year_title = ""
 
-# Create display title
-display_title = address_title + district_title + senate_title + status_title + rental_title + units_title + year_title
+# Store filtered_df before address filter for search options
+filtered_df_before_address = filtered_df.copy()
 
-# Display filtered counts
-st.subheader("📈 Filtered Results")
-col1, col2, col3, col4 = st.columns(4)
+# Address Search section (above map)
+st.subheader("🔍 Search Address")
+address_options = ['All Addresses'] + sorted(filtered_df_before_address['parcel_address'].dropna().unique().tolist())
+# Get address from query params or use current selection
+address_param = query_params.get('address')
+if address_param:
+    default_address = address_param[0] if isinstance(address_param, list) else address_param
+else:
+    default_address = selected_address if 'selected_address' in locals() else 'All Addresses'
+address_index = address_options.index(default_address) if default_address in address_options else 0
+selected_address = st.selectbox(
+    "Search by Address:",
+    options=address_options,
+    index=address_index,
+    help="Search and filter by specific address within the current filtered results. Start typing to see matching addresses."
+)
 
-with col1:
-    st.metric("Properties", f"{len(filtered_df):,}")
-
-with col2:
-    numberofunits = filtered_df['numberofunits'].sum()
-    st.metric("Total Units", f"{numberofunits:,.0f}", help="Total number of housing units (based on rental license data) across all LIHTC properties in Philadelphia")
-
-with col3:
-    certified_properties = len(filtered_df[filtered_df['lhhp_certification_status'] == 'Certified'])
-    st.metric("Lead Certified Addresses", f"{certified_addresses:,}")
-
-with col4:
-    avg_units = filtered_df['numberofunits'].mean() if len(filtered_df) > 0 else 0
-    st.metric("Avg Units per Address", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per address in Philadelphia")
+# Apply address filter now (before map creation)
+if selected_address != 'All Addresses':
+    filtered_df = filtered_df_before_address[filtered_df_before_address['parcel_address'] == selected_address].copy()
+    address_title = f" for {selected_address}"
+else:
+    filtered_df = filtered_df_before_address.copy()
+    address_title = ""
 
 st.divider()
 
@@ -425,6 +443,81 @@ if map_data['last_object_clicked'] is not None:
 
 st.divider()
 
+# Update display title with address
+display_title = address_title + district_title + senate_title + rental_title + units_title + year_title
+
+# Display filtered counts (after address filter)
+st.subheader("📈 Filtered Results")
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Addresses", f"{len(filtered_df):,}")
+
+with col2:
+    numberofunits = filtered_df['numberofunits'].sum()
+    st.metric("Total Units", f"{numberofunits:,.0f}", help="Total number of housing units (based on rental license data) across all LIHTC properties in Philadelphia")
+
+with col3:
+    certified_properties = len(filtered_df[filtered_df['lhhp_certification_status'] == 'Certified'])
+    st.metric("Lead Certified Addresses", f"{certified_properties:,}")
+
+with col4:
+    avg_units = filtered_df['numberofunits'].mean() if len(filtered_df) > 0 else 0
+    st.metric("Avg Units per Address", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per address in Philadelphia")
+
+st.divider()
+
+# Update query parameters based on current filter values (including address)
+new_params = {}
+if selected_address != 'All Addresses':
+    new_params['address'] = selected_address
+if selected_district != 'All':
+    new_params['council_district'] = selected_district
+if selected_senate != 'All':
+    new_params['senate_district'] = selected_senate
+if selected_rental_license != 'All':
+    new_params['rental_license'] = selected_rental_license
+# Always include units_mode in URL params
+new_params['units_mode'] = units_filter_mode
+if units_filter_mode == "Filter with Minimum" and min_units is not None:
+    new_params['min_units'] = str(min_units)
+if year_range is not None:
+    new_params['year_start'] = str(year_range[0])
+    new_params['year_end'] = str(year_range[1])
+
+# Update query parameters to reflect current filter state
+# Mark that we've completed initial load
+if 'filters_initialized' not in st.session_state:
+    st.session_state.filters_initialized = True
+else:
+    # After initialization, update query params when filters change
+    # Simple comparison: update if current query params don't match new params
+    params_match = True
+    for key, value in new_params.items():
+        current_value = query_params.get(key)
+        if isinstance(value, list):
+            if current_value != value:
+                params_match = False
+                break
+        else:
+            if current_value != [value] and current_value != value:
+                params_match = False
+                break
+    
+    # Also check for params that should be removed
+    for key in query_params.keys():
+        if key not in new_params and key not in ['initial_load']:
+            params_match = False
+            break
+    
+    if not params_match:
+        # Clear all existing params and set new ones to ensure removed params are cleared
+        st.query_params.clear()
+        if new_params:
+            st.query_params.update(**new_params)
+
+st.divider()
+
 # Display filtered properties table
 st.subheader("📋 Address Details")
 st.write(display_title)
@@ -536,17 +629,12 @@ if len(display_df) > 0:
             st.markdown("#### 📋 Addresses Connected via NHPD Subsidy ID")
             if not df_nhpd_connected.empty:
                 # Remove the current property from the list if it's included
-                df_nhpd_display = df_nhpd_connected[df_nhpd_connected['parcel_number'] != parcel_number].copy()
-                if len(df_nhpd_display) > 0:
+                if len(df_nhpd_connected) > 0:
                     # Use the same display columns as the main table
-                    nhpd_display_df = df_nhpd_display[list(display_columns.keys())].copy()
-                    nhpd_display_df = nhpd_display_df.rename(columns=display_columns)
+                    nhpd_connected_df = df_nhpd_connected[list(display_columns.keys())].copy()
+                    nhpd_connected_df = nhpd_connected_df.rename(columns=display_columns)
                     
-                    # Format date columns
-                    if 'Lead Expiration Date' in nhpd_display_df.columns:
-                        nhpd_display_df['Lead Expiration Date'] = pd.to_datetime(nhpd_display_df['Lead Expiration Date'], errors='coerce').dt.strftime('%Y-%m-%d')
-                    
-                    st.dataframe(nhpd_display_df, width='stretch', hide_index=True)
+                    st.dataframe(nhpd_connected_df, width='stretch', hide_index=True)
                 else:
                     st.info("No other addresses connected via NHPD Subsidy ID")
             else:
@@ -557,17 +645,12 @@ if len(display_df) > 0:
             st.markdown("#### 📋 Addresses Connected via HUD Subsidy ID")
             if not df_hud_connected.empty:
                 # Remove the current property from the list if it's included
-                df_hud_display = df_hud_connected[df_hud_connected['parcel_number'] != parcel_number].copy()
-                if len(df_hud_display) > 0:
+                if len(df_hud_connected) > 0:
                     # Use the same display columns as the main table
-                    hud_display_df = df_hud_display[list(display_columns.keys())].copy()
-                    hud_display_df = hud_display_df.rename(columns=display_columns)
+                    hud_connected_df = df_hud_connected[list(display_columns.keys())].copy()
+                    hud_connected_df = hud_connected_df.rename(columns=display_columns)
                     
-                    # Format date columns
-                    if 'Lead Expiration Date' in hud_display_df.columns:
-                        hud_display_df['Lead Expiration Date'] = pd.to_datetime(hud_display_df['Lead Expiration Date'], errors='coerce').dt.strftime('%Y-%m-%d')
-                    
-                    st.dataframe(hud_display_df, width='stretch', hide_index=True)
+                    st.dataframe(hud_connected_df, width='stretch', hide_index=True)
                 else:
                     st.info("No other addresses connected via HUD Subsidy ID")
             else:
