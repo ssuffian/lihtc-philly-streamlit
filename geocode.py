@@ -133,6 +133,7 @@ def generate_db_for_dashboard(
     df_rental_license['has_active_rental_license'] = df_rental_license['has_active_rental_license'].fillna(0).astype(int) # False is 0, True is 1
 
     df_nhpd_to_parcel_mapping = df_parcels[['nhpd_property_id', 'parcel_number']].dropna()
+    breakpoint()
 
 
     typer.echo(f"Loading subsidy data")

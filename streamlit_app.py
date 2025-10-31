@@ -8,12 +8,12 @@ from streamlit_folium import st_folium
 
 # Page configuration
 st.set_page_config(
-    page_title="LIHTC Properties in Philadelphia",
+    page_title="Addresses Connected to LIHTC Subsidies in Philadelphia",
     page_icon="🏠",
     layout="wide"
 )
 
-st.title("🏠 LIHTC Properties in Philadelphia by Council District")
+st.title("🏠 Addresses Connected to LIHTC Subsidies in Philadelphia by Council District")
 
 # Load and process LIHTC data
 @st.cache_data
@@ -42,6 +42,7 @@ def load_subsidies_data():
 
 # Load data
 lihtc_df = load_lihtc_data()
+df_all_subsidies = load_subsidies_data()
 
 council_mapping = {
     '1': 'Mark Squilla',
@@ -57,23 +58,23 @@ council_mapping = {
 }
 
 # Display total numbers above everything
-st.subheader("📊 Total LIHTC Properties Overview")
+st.subheader("📊 Total Addresses Connected to LIHTC Subsidies Overview")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("Total Properties", f"{len(lihtc_df):,}")
+    st.metric("Total Addresses", f"{len(lihtc_df):,}")
 
 with col2:
     total_units = lihtc_df['numberofunits'].sum()
     st.metric("Total Units", f"{total_units:,.0f}", help="Total number of housing units (based on rental license data) across all LIHTC properties in Philadelphia")
 
 with col3:
-    certified_properties = len(lihtc_df[lihtc_df['lhhp_certification_status'] == 'Certified'])
-    st.metric("Lead Certified Properties", f"{certified_properties:,}")
+    certified_addresses = len(lihtc_df[lihtc_df['lhhp_certification_status'] == 'Certified'])
+    st.metric("Lead Certified Addresses", f"{certified_addresses:,}")
 
 with col4:
     avg_units = lihtc_df['numberofunits'].mean() if len(lihtc_df) > 0 else 0
-    st.metric("Avg Units per Property", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per LIHTC property in Philadelphia")
+    st.metric("Avg Units per Address", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per address in Philadelphia")
 
 st.divider()
 
@@ -189,10 +190,10 @@ filtered_df = lihtc_df.copy()
 
 # Filter by council district
 if selected_district == 'All':
-    district_title = "All LIHTC Properties in Philadelphia"
+    district_title = "All Addresses Connected to LIHTC Subsidies in Philadelphia"
 else:
     filtered_df = filtered_df[filtered_df['council_district'] == selected_district].copy()
-    district_title = f"LIHTC Properties in Council District {selected_district}"
+    district_title = f"Addresses Connected to LIHTC Subsidies in Council District {selected_district}"
 
 # Filter by senate district
 if selected_senate != 'All':
@@ -270,11 +271,11 @@ with col2:
 
 with col3:
     certified_properties = len(filtered_df[filtered_df['lhhp_certification_status'] == 'Certified'])
-    st.metric("Lead Certified Properties", f"{certified_properties:,}")
+    st.metric("Lead Certified Addresses", f"{certified_addresses:,}")
 
 with col4:
     avg_units = filtered_df['numberofunits'].mean() if len(filtered_df) > 0 else 0
-    st.metric("Avg Units per Property", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per LIHTC property in Philadelphia")
+    st.metric("Avg Units per Address", f"{avg_units:.1f}", help="Average number of housing units (based on rental license data) per address in Philadelphia")
 
 st.divider()
 
@@ -368,7 +369,7 @@ def find_nearest_property(lat, lng, df):
     return df.loc[nearest_idx]
 
 # Map section
-st.subheader("🗺️ Property Map")
+st.subheader("🗺️ Address Map")
 
 # Add legend
 st.markdown("**Map Legend:**")
@@ -406,7 +407,7 @@ if map_data['last_object_clicked'] is not None:
 st.divider()
 
 # Display filtered properties table
-st.subheader("📋 Property Details")
+st.subheader("📋 Address Details")
 st.write(display_title)
 
 # Select and rename columns for display
@@ -461,7 +462,7 @@ if len(display_df) > 0:
     # Show detailed property information if a row is selected
     if st.session_state.selected_row is not None:
         st.divider()
-        st.subheader("🔍 Selected Property Details")
+        st.subheader("🔍 Selected Address Details")
 
 
         
@@ -499,10 +500,65 @@ if len(display_df) > 0:
             
             for key, value in cert_info.items():
                 st.write(f"**{key}:** {value}")
-        
-        # Property violations section - as a prominent subcategory
+
+        # Load Table of Connected Properties by Subsidy
+        nhpd_connected = df_all_subsidies[df_all_subsidies['NHPD Subsidy ID'].isin(df_all_subsidies[df_all_subsidies.parcel_number==parcel_number]['NHPD Subsidy ID'].dropna())].parcel_number
+        hud_connected = df_all_subsidies[df_all_subsidies['HUD Subsidy ID'].isin(df_all_subsidies[df_all_subsidies.parcel_number==parcel_number]['HUD Subsidy ID'].dropna())].parcel_number
+
+        df_nhpd_connected = lihtc_df[lihtc_df['parcel_number'].isin(nhpd_connected)]
+        df_hud_connected = lihtc_df[lihtc_df['parcel_number'].isin(hud_connected)]
+
+        # Connected Properties by Subsidy section
         st.markdown("---")  # Add a divider line
-        st.markdown("### 🚨 Property Violations (Last 5 Years)")
+        st.markdown("### 🔗 Connected Addresses by Subsidy")
+        
+        # NHPD Connected Properties
+        with st.container():
+            st.markdown("#### 📋 Addresses Connected via NHPD Subsidy ID")
+            if not df_nhpd_connected.empty:
+                # Remove the current property from the list if it's included
+                df_nhpd_display = df_nhpd_connected[df_nhpd_connected['parcel_number'] != parcel_number].copy()
+                if len(df_nhpd_display) > 0:
+                    # Use the same display columns as the main table
+                    nhpd_display_df = df_nhpd_display[list(display_columns.keys())].copy()
+                    nhpd_display_df = nhpd_display_df.rename(columns=display_columns)
+                    
+                    # Format date columns
+                    if 'Lead Expiration Date' in nhpd_display_df.columns:
+                        nhpd_display_df['Lead Expiration Date'] = pd.to_datetime(nhpd_display_df['Lead Expiration Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+                    
+                    st.dataframe(nhpd_display_df, width='stretch', hide_index=True)
+                else:
+                    st.info("No other addresses connected via NHPD Subsidy ID")
+            else:
+                st.info("No addresses connected via NHPD Subsidy ID")
+        
+        # HUD Connected Properties
+        with st.container():
+            st.markdown("#### 📋 Addresses Connected via HUD Subsidy ID")
+            if not df_hud_connected.empty:
+                # Remove the current property from the list if it's included
+                df_hud_display = df_hud_connected[df_hud_connected['parcel_number'] != parcel_number].copy()
+                if len(df_hud_display) > 0:
+                    # Use the same display columns as the main table
+                    hud_display_df = df_hud_display[list(display_columns.keys())].copy()
+                    hud_display_df = hud_display_df.rename(columns=display_columns)
+                    
+                    # Format date columns
+                    if 'Lead Expiration Date' in hud_display_df.columns:
+                        hud_display_df['Lead Expiration Date'] = pd.to_datetime(hud_display_df['Lead Expiration Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+                    
+                    st.dataframe(hud_display_df, width='stretch', hide_index=True)
+                else:
+                    st.info("No other addresses connected via HUD Subsidy ID")
+            else:
+                st.info("No addresses connected via HUD Subsidy ID")
+
+        
+        # Address violations section - as a prominent subcategory
+        st.markdown("---")  # Add a divider line
+        st.markdown("### 🚨 Address Violations (Last 5 Years)")
+
         
         # Load violations data from CSV
         df_all_violations = load_violations_data()
@@ -547,12 +603,11 @@ if len(display_df) > 0:
         else:
             st.info("✅ No violations found for this property in the last 5 years")
         
-        # Property subsidies section - as a prominent subcategory
+        # Address subsidies section - as a prominent subcategory
         st.markdown("---")  # Add a divider line
-        st.markdown("### 💰 Property Subsidies")
+        st.markdown("### 💰 Address Subsidies")
         
         # Load subsidies data from CSV
-        df_all_subsidies = load_subsidies_data()
         df_subsidies = df_all_subsidies[df_all_subsidies['parcel_number'] == parcel_number].copy()
         
         if not df_subsidies.empty:
@@ -603,7 +658,7 @@ if len(display_df) > 0:
                 st.write(f"**{key}:** {value}")
         
         # Show all available columns in an expandable section
-        with st.expander("📋 All Property Data (Raw)"):
+        with st.expander("📋 All Address Data (Raw)"):
             # Get all columns and their values
             all_data = selected_property.to_dict()
             
@@ -620,4 +675,4 @@ if len(display_df) > 0:
             st.rerun()
         
 else:
-    st.info(f"No LIHTC properties found matching the selected filters")
+    st.info(f"No addresses connected to LIHTC subsidies found matching the selected filters")
