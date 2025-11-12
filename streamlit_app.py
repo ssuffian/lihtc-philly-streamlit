@@ -525,15 +525,16 @@ st.write(display_title)
 # Select and rename columns for display
 display_columns = {
     'parcel_address': 'Address',
-    'council_district': 'Council District',
-    'senate_district': 'Senate District',
+    'council_district': 'City Council',
+    'senate_district': 'State Senate',
     'numberofunits': 'Units (From RL)',
     "rental_license_status": "Rental License Status",
-    'lhhp_certification_status': 'Lead Certification Status',
+    'lhhp_certification_status': 'Lead Status',
     'lhhp_cert_expiration_date': 'Lead Expiration Date',
     'Subsidy Status': 'LIHTC Status',
     'Max End Date': 'LIHTC Latest End Date',
-    'num_associated_hud_properties': 'Associated HUD Properties'
+    'property_name_address': 'Associated Properties',
+    'num_associated_hud_properties': '# Properties'
 }
 
 # Filter to only show selected columns
@@ -747,7 +748,8 @@ if len(display_df) > 0:
         st.write("**Additional Details**")
         additional_info = {
             'Max End Date': selected_property['Max End Date'],
-            'Associated HUD Properties': selected_property['num_associated_hud_properties'],
+            'Associated HUD Properties': selected_property['property_name_address'],
+            '# Properties': selected_property['num_associated_hud_properties'],
             'Property Type': selected_property.get('property_type', 'N/A'),
             'Owner Name': selected_property.get('owner_name', 'N/A'),
             'Owner Address': selected_property.get('owner_address', 'N/A')

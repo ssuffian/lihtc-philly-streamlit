@@ -111,8 +111,24 @@ def generate_db_for_dashboard(
 
     typer.echo(f"Loading parcel data")
     df_parcels = pd.read_csv(parcels_filepath, dtype='str')
-    df_unique_parcels = df_parcels[['parcel_number', 'parcel_address']].value_counts()
-    df_unique_parcels = df_unique_parcels.reset_index().rename(columns={'count':'num_associated_hud_properties'})
+    # Group by parcel_number and parcel_address, get counts and concatenate property names
+    def _concat_properties(group):
+        # Create "property_name - property_address" strings for each unique property
+        props = group[['lihtc_property_name', 'lihtc_property_address']].drop_duplicates()
+        props = props.dropna()
+        if len(props) > 0:
+            prop_strings = (props['lihtc_property_name'] + ' - ' + props['lihtc_property_address']).tolist()
+            return '; '.join(prop_strings)
+        return ''
+    
+    df_unique_parcels = df_parcels.groupby(['parcel_number', 'parcel_address']).apply(
+        lambda x: pd.Series({
+            'property_name_address': _concat_properties(x),
+            'num_associated_hud_properties': len(x)
+        }),
+        include_groups=False
+    ).reset_index()
+    # Get the count
     df_unique_parcels.to_sql('parcels', con, if_exists='replace', index=False)
 
     typer.echo("Processing lead data...")
@@ -123,17 +139,24 @@ def generate_db_for_dashboard(
 
     typer.echo("Processing rental licenses...")
     df_rental_license = pd.read_sql("""
-        SELECT parcel_number, parcel_address, max(numberofunits) as numberofunits, max(num_associated_hud_properties) as num_associated_hud_properties, licensestatus = 'Active' as has_active_rental_license, licensestatus as rental_license_status, case when licensestatus is null then null else 'units_from_rl' end as units_source
+        SELECT parcel_number, parcel_address, numberofunits, num_associated_hud_properties, property_name_address, licensestatus = 'Active' as has_active_rental_license, licensestatus as rental_license_status, case when licensestatus is null then null else 'units_from_rl' end as units_source
         from parcels 
-        LEFT JOIN business_licenses
+        LEFT JOIN (
+            SELECT bl1.*
+            FROM business_licenses bl1
+            INNER JOIN (
+                SELECT opa_account_num, MAX(mostrecentissuedate) as max_date
+                FROM business_licenses
+                GROUP BY opa_account_num
+            ) bl2 ON bl1.opa_account_num = bl2.opa_account_num 
+                 AND bl1.mostrecentissuedate = bl2.max_date
+        ) business_licenses
         ON business_licenses.opa_account_num = parcels.parcel_number
-        GROUP BY parcel_number, parcel_address
     """, con=con)
     df_rental_license = df_rental_license.drop_duplicates()
     df_rental_license['has_active_rental_license'] = df_rental_license['has_active_rental_license'].fillna(0).astype(int) # False is 0, True is 1
 
     df_nhpd_to_parcel_mapping = df_parcels[['nhpd_property_id', 'parcel_number']].dropna()
-    breakpoint()
 
 
     typer.echo(f"Loading subsidy data")
