@@ -528,13 +528,13 @@ display_columns = {
     'council_district': 'City Council',
     'senate_district': 'State Senate',
     'numberofunits': 'Units (From RL)',
+    'property_name_address': 'Associated Properties',
+    'num_associated_hud_properties': '# Properties',
     "rental_license_status": "Rental License Status",
     'lhhp_certification_status': 'Lead Status',
     'lhhp_cert_expiration_date': 'Lead Expiration Date',
     'Subsidy Status': 'LIHTC Status',
     'Max End Date': 'LIHTC Latest End Date',
-    'property_name_address': 'Associated Properties',
-    'num_associated_hud_properties': '# Properties'
 }
 
 # Filter to only show selected columns
